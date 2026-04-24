@@ -1,0 +1,10 @@
+// Le falta el .interfaz en la referencia, deberia ser Router1.eth0 to Switch1.port1
+
+network EmpresaError2 {
+
+    device Router1 router
+    device Switch1 switch
+
+    connect Router1 to Switch1
+
+}

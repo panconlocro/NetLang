@@ -1,0 +1,7 @@
+// Le falta el /24 al final.
+
+network EmpresaError3 {
+
+    subnet LAN_Oficina 192.168.1.0
+
+}

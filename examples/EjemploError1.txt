@@ -1,0 +1,7 @@
+// firewall no es un tipo valido
+
+network EmpresaError1 {
+
+    device Router1 firewall
+
+}
