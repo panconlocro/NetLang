@@ -1,0 +1,18 @@
+# Archivos generados por ANTLR4
+grammar/*.py
+grammar/*.tokens
+grammar/*.interp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env/
+venv/
+
+# VS Code
+.vscode/
+
+# Sistema
+.DS_Store
+Thumbs.db

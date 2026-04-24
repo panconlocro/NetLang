@@ -2,6 +2,6 @@
 
 network EmpresaError3 {
 
-    subnet LAN_Oficina 192.168.1.0
+    subnet LAN_Oficina 192.168.1.0 
 
 }
