@@ -1,0 +1,21 @@
+network EmpresaDemo {
+
+    subnet LAN_Oficina 192.168.1.0/24
+    subnet LAN_Servidores 10.0.0.0/24
+
+    device Router1 router {
+        gateway 192.168.1.1
+    }
+
+    device Switch1 switch
+
+    device PC1 host {
+        subnet LAN_Oficina
+    }
+
+    interface Router1 eth0 ip 192.168.1.1 mask 255.255.255.0
+    interface PC1 eth0 ip 192.168.1.10 mask 255.255.255.0
+
+    connect Router1.eth0 to Switch1.port1 bandwidth 100 Mbps latency 2 ms
+    connect PC1.eth0 to Switch1.port2
+}
