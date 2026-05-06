@@ -1,8 +1,0 @@
-network EmpresaDemo {
-
-    device Router1 router
-
-    // PC1 nunca fue declarado con device
-    connect Router1.eth0 to PC1.port1
-
-}
