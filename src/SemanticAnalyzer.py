@@ -4,13 +4,19 @@ from grammar.NetLangParser import NetLangParser
 class SemanticAnalyzer(NetLangVisitor):
 
     def __init__(self):
-        self.devices = {}      # nombre -> tipo
-        self.subnets = set()   # nombres de subredes declaradas
+        self.devices = {}       # nombre -> tipo
+        self.subnets = set()    # nombres de subredes declaradas
         self.interfaces = set() # "dispositivo.interfaz"
-        self.ips = {}          # "ip" -> interfaz que la usa
+        self.ips = {}           # "ip" -> interfaz que la usa
         self.errors = []
 
     def visitNetworkBlock(self, ctx):
+        return self.visitChildren(ctx)
+
+    def visitNetworkBody(self, ctx):
+        return self.visitChildren(ctx)
+
+    def visitStatement(self, ctx):
         return self.visitChildren(ctx)
 
     # Registra dispositivos declarados
@@ -18,16 +24,24 @@ class SemanticAnalyzer(NetLangVisitor):
         name = ctx.ID().getText()
         tipo = ctx.deviceType().getText()
         if name in self.devices:
-            self.errors.append(f"Error: dispositivo '{name}' declarado mas de una vez")
+            self.errors.append(f"Error semantico: dispositivo '{name}' declarado mas de una vez")
         else:
             self.devices[name] = tipo
+        return self.visitChildren(ctx)
+
+    # Valida propiedades del dispositivo
+    def visitDeviceProp(self, ctx):
+        if ctx.SUBNET():
+            subnet_name = ctx.ID().getText()
+            if subnet_name not in self.subnets:
+                self.errors.append(f"Error semantico: subred '{subnet_name}' referenciada pero no declarada")
         return self.visitChildren(ctx)
 
     # Registra subredes declaradas
     def visitSubnetDecl(self, ctx):
         name = ctx.ID().getText()
         if name in self.subnets:
-            self.errors.append(f"Error: subred '{name}' declarada mas de una vez")
+            self.errors.append(f"Error semantico: subred '{name}' declarada mas de una vez")
         else:
             self.subnets.add(name)
         return self.visitChildren(ctx)
@@ -37,21 +51,21 @@ class SemanticAnalyzer(NetLangVisitor):
         device = ctx.ID(0).getText()
         iface = ctx.ID(1).getText()
         key = f"{device}.{iface}"
-        
+
         # Dispositivo existe?
         if device not in self.devices:
-            self.errors.append(f"Error: dispositivo '{device}' no declarado")
-        
+            self.errors.append(f"Error semantico: dispositivo '{device}' no declarado en interfaz '{key}'")
+
         # Interfaz repetida?
         if key in self.interfaces:
-            self.errors.append(f"Error: interfaz '{key}' declarada mas de una vez")
+            self.errors.append(f"Error semantico: interfaz '{key}' declarada mas de una vez")
         else:
             self.interfaces.add(key)
 
         # IP duplicada?
-        ip = self.getIP(ctx)
+        ip = ctx.ipAddress(0).getText()
         if ip in self.ips:
-            self.errors.append(f"Error: IP '{ip}' ya usada en '{self.ips[ip]}'")
+            self.errors.append(f"Error semantico: IP '{ip}' ya esta en uso en '{self.ips[ip]}'")
         else:
             self.ips[ip] = key
 
@@ -65,10 +79,5 @@ class SemanticAnalyzer(NetLangVisitor):
             iface = ref.ID(1).getText()
             key = f"{device}.{iface}"
             if device not in self.devices:
-                self.errors.append(f"Error: dispositivo '{device}' no declarado en conexion")
+                self.errors.append(f"Error semantico: dispositivo '{device}' no declarado en conexion '{key}'")
         return self.visitChildren(ctx)
-
-    # Helper para extraer IP como string
-    def getIP(self, ctx):
-        ip = ctx.ipAddress(0)
-        return ip.getText()
