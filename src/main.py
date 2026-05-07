@@ -23,7 +23,6 @@ def main():
         print(f"✗ Se encontraron {parser.getNumberOfSyntaxErrors()} error(es) sintactico(s). Abortando.")
         sys.exit(1)
 
-    print("✓ Analisis sintactico exitoso")
 
     # Analisis semantico
     analyzer = SemanticAnalyzer()
@@ -33,8 +32,5 @@ def main():
         print(f"✗ Se encontraron {len(analyzer.errors)} error(es) semantico(s):")
         for error in analyzer.errors:
             print(f"  - {error}")
-    else:
-        print("✓ Analisis semantico exitoso")
-        print("✓ La red es valida")
 
 main()
