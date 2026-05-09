@@ -64,5 +64,5 @@ network EmpresaDemo {
 
 - Rosa Rodriguez
 - Braulio Bartra
-- Diego Ballon
-- Luis
+- David Ballón
+- Luis Flores
