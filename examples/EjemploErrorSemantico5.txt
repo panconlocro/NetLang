@@ -1,0 +1,12 @@
+// Subred referenciada sin declarar
+
+network EmpresaDemo {
+
+    device Router1 router
+    device PC1 host {
+        subnet LAN_Inexistente
+    }
+
+    interface Router1 eth0 ip 192.168.1.1 mask 255.255.255.0
+
+}

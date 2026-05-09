@@ -1,0 +1,11 @@
+//Dispositivo declarado dos veces
+
+network EmpresaDemo {
+
+    device Router1 router
+    device Router1 switch
+    device PC1 host
+
+    connect Router1.eth0 to PC1.eth0
+
+}
