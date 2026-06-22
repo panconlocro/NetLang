@@ -34,16 +34,30 @@ def _us_a_str(us: int) -> str:
 class CodeGen:
     def __init__(self, ir: NetworkIR):
         self.ir = ir
-        # Mapas auxiliares para acceso rápido
         self._tipo = {d['name']: d['tipo'] for d in ir.devices}
-        # primera IP declarada por dispositivo → para addHost(ip=...)
-        self._primera_ip: dict[str, str] = {}
-        self._primera_mask: dict[str, str] = {}
+
+        # Map (device, declared_iface_name) → Mininet ethN index.
+        # Mininet numbers interfaces in the order addLink() is called, so we
+        # replicate that order here to get the correct ethN for each declared
+        # interface name.
+        self._mininet_eth: dict[tuple, int] = {}
+        dev_eth_count: dict[str, int] = {}
+        for conn in ir.connections:
+            for dev, iface in [(conn['src_dev'], conn['src_iface']),
+                               (conn['dst_dev'], conn['dst_iface'])]:
+                if (dev, iface) not in self._mininet_eth:
+                    n = dev_eth_count.get(dev, 0)
+                    self._mininet_eth[(dev, iface)] = n
+                    dev_eth_count[dev] = n + 1
+
+        # IP/mask for the interface that will be eth0 (first connection) per device.
+        self._eth0_ip:   dict[str, str] = {}
+        self._eth0_mask: dict[str, str] = {}
         for iface in ir.interfaces:
-            dev = iface['device']
-            if dev not in self._primera_ip:
-                self._primera_ip[dev] = iface['ip']
-                self._primera_mask[dev] = iface['mask']
+            dev, ifn = iface['device'], iface['iface']
+            if self._mininet_eth.get((dev, ifn)) == 0:
+                self._eth0_ip[dev]   = iface['ip']
+                self._eth0_mask[dev] = iface['mask']
 
     def generar(self) -> str:
         ir = self.ir
@@ -75,9 +89,10 @@ class CodeGen:
             if tipo == 1:  # switch
                 a(f'    {nombre} = net.addSwitch("{nombre}")')
             else:          # router o host
-                ip = self._primera_ip.get(nombre)
+                # Use the IP that belongs to eth0 (first connection in addLink order)
+                ip = self._eth0_ip.get(nombre)
                 if ip:
-                    mask = self._primera_mask.get(nombre, '255.255.255.0')
+                    mask = self._eth0_mask.get(nombre, '255.255.255.0')
                     cidr = _mask_a_cidr(mask)
                     a(f'    {nombre} = net.addHost("{nombre}", ip="{ip}/{cidr}")')
                 else:
@@ -111,22 +126,20 @@ class CodeGen:
         a('    net.start()')
         a('')
 
-        # Interfaces adicionales e IP forwarding para routers
-        if len(ir.interfaces) > 0:
+        # Configurar interfaces adicionales (eth1, eth2, …) con la IP correcta.
+        # eth0 ya quedó configurado en addHost(); solo procesamos ethN con N > 0.
+        ifaces_adicionales = [
+            iface for iface in ir.interfaces
+            if self._mininet_eth.get((iface['device'], iface['iface']), 0) > 0
+        ]
+        if ifaces_adicionales:
             a('    info("*** Configurando interfaces\\n")')
-            # Interfaces ya asignadas (primera de cada dispositivo va en addHost)
-            ya_asignadas = set(self._primera_ip.keys())
-            for iface in ir.interfaces:
+            for iface in ifaces_adicionales:
                 dev, ifn = iface['device'], iface['iface']
                 ip, mask = iface['ip'], iface['mask']
                 cidr = _mask_a_cidr(mask)
-                # La primera interfaz ya fue configurada en addHost;
-                # Las adicionales se configuran via comando
-                clave = f"{dev}.{ifn}"
-                if dev in ya_asignadas and ip == self._primera_ip[dev]:
-                    continue  # ya configurada
-                # nombre de interfaz en mininet: <dev>-eth<n>
-                a(f'    {dev}.cmd("ip addr add {ip}/{cidr} dev {dev}-eth0")')
+                eth_n = self._mininet_eth[(dev, ifn)]
+                a(f'    {dev}.cmd("ip addr add {ip}/{cidr} dev {dev}-eth{eth_n}")')
             a('')
 
         if routers:
@@ -134,6 +147,10 @@ class CodeGen:
             for r in routers:
                 a(f'    {r}.cmd("sysctl -w net.ipv4.ip_forward=1")')
             a('')
+
+        # Rutas por defecto para hosts que no son routers.
+        # Para cada host, busca un router directamente conectado y lo usa como gateway.
+        self._agregar_rutas(ir, routers, a)
 
         a('    info("*** Ejecutando CLI\\n")')
         a('    CLI(net)')
@@ -148,3 +165,54 @@ class CodeGen:
         a(f'    crear_topologia_{ir.name}()')
 
         return '\n'.join(lines)
+
+    def _agregar_rutas(self, ir: NetworkIR, routers: list, a) -> None:
+        """Genera rutas ip route add default via <gw> para hosts no-router."""
+        router_set = set(routers)
+
+        # Build adjacency: for each (device, iface) find the peer device and its IP.
+        # We need the IP of the router's interface that faces this host/switch.
+        iface_ip: dict[tuple, str] = {
+            (iface['device'], iface['iface']): iface['ip']
+            for iface in ir.interfaces
+        }
+
+        # For each non-router host, look for a directly connected router.
+        # If connected via a switch, also check the switch's neighbours.
+        host_devices = {d['name'] for d in ir.devices if d['tipo'] == 2}
+        switch_devices = {d['name'] for d in ir.devices if d['tipo'] == 1}
+
+        # Build neighbour map: device → [(peer_dev, peer_iface)]
+        neighbours: dict[str, list] = {}
+        for conn in ir.connections:
+            sd, si = conn['src_dev'], conn['src_iface']
+            dd, di = conn['dst_dev'], conn['dst_iface']
+            neighbours.setdefault(sd, []).append((dd, di))
+            neighbours.setdefault(dd, []).append((sd, si))
+
+        def find_router_gateway(host: str) -> str | None:
+            """Return the IP of the best router gateway for host, or None."""
+            for peer, peer_iface in neighbours.get(host, []):
+                if peer in router_set:
+                    gw = iface_ip.get((peer, peer_iface))
+                    if gw:
+                        return gw
+                # Host connected via a switch — one hop further
+                if peer in switch_devices:
+                    for peer2, peer2_iface in neighbours.get(peer, []):
+                        if peer2 in router_set and peer2 != host:
+                            gw = iface_ip.get((peer2, peer2_iface))
+                            if gw:
+                                return gw
+            return None
+
+        routes_added = False
+        for dev_name in host_devices:
+            gw = find_router_gateway(dev_name)
+            if gw:
+                if not routes_added:
+                    a('    info("*** Configurando rutas\\n")')
+                    routes_added = True
+                a(f'    {dev_name}.cmd("ip route add default via {gw}")')
+        if routes_added:
+            a('')
