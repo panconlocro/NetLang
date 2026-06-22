@@ -130,7 +130,7 @@ python3 src/main.py examples/EjemploErrorSemantico1.txt
 Una vez generado el script, se ejecuta con privilegios de administrador (Mininet los requiere):
 
 ```bash
-sudo python3 topologia.py
+sudo python3 mininet/topologia.py
 ```
 
 Esto levanta la red virtual y abre la CLI de Mininet:
@@ -205,13 +205,13 @@ network LabRed {
 2. Compilar y generar la topología:
 
 ```bash
-python3 src/main.py lab_red.txt --ir --codegen lab_red.py
+python3 src/main.py examples/lab_red.txt --ir --codegen lab_red.py
 ```
 
 3. Levantar la red en Mininet:
 
 ```bash
-sudo python3 lab_red.py
+sudo python3 mininet/lab_red.py
 ```
 
 4. Verificar conectividad:

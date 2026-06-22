@@ -59,18 +59,23 @@ def main():
     if emitir_ir or archivo_salida:
         llvm_ir = ir_gen.emit_llvm_ir()
         if emitir_ir:
-            nombre_ir = os.path.splitext(archivo_entrada)[0] + '.ll'
+            os.makedirs('salida', exist_ok=True)
+            nombre_base = os.path.basename(os.path.splitext(archivo_entrada)[0]) + '.ll'
+            nombre_ir = os.path.join('salida', nombre_base)
             with open(nombre_ir, 'w', encoding='utf-8') as f:
                 f.write(llvm_ir)
             print(f"✓ LLVM IR generado en: {nombre_ir}")
 
     # ── Fase 4: Generación de código Mininet ──────────────────────
     if archivo_salida:
+        os.makedirs('mininet', exist_ok=True)
+        nombre_base = os.path.basename(archivo_salida)
+        ruta_salida = os.path.join('mininet', nombre_base)
         codegen = CodeGen(network_ir)
         script = codegen.generar()
-        with open(archivo_salida, 'w', encoding='utf-8') as f:
+        with open(ruta_salida, 'w', encoding='utf-8') as f:
             f.write(script)
-        print(f"✓ Script Mininet generado en: {archivo_salida}")
+        print(f"✓ Script Mininet generado en: {ruta_salida}")
 
     if not emitir_ir and not archivo_salida:
         print("Tip: usa --ir para generar LLVM IR y --codegen <salida.py> para generar el script Mininet.")
