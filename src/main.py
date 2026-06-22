@@ -7,17 +7,16 @@ from grammar.NetLangLexer import NetLangLexer
 from grammar.NetLangParser import NetLangParser
 from SemanticAnalyzer import SemanticAnalyzer
 from IRGenerator import IRGenerator
-from CodeGen import CodeGen
+from CodeGen import CodeGenVisitor
 
 
 def main():
     if len(sys.argv) < 2:
-        print("Uso: python3 src/main.py <archivo.txt> [--ir] [--codegen <salida.py>]")
+        print("Uso: python3 src/main.py <archivo.txt> [--codegen <salida.py>]")
         sys.exit(1)
 
     archivo_entrada = sys.argv[1]
-    emitir_ir = '--ir' in sys.argv
-    archivo_salida = None
+    archivo_salida  = None
     if '--codegen' in sys.argv:
         idx = sys.argv.index('--codegen')
         if idx + 1 < len(sys.argv):
@@ -28,10 +27,10 @@ def main():
 
     # ── Fase 1: Análisis léxico y sintáctico ──────────────────────
     input_stream = FileStream(archivo_entrada, encoding='utf-8')
-    lexer = NetLangLexer(input_stream)
-    tokens = CommonTokenStream(lexer)
-    parser = NetLangParser(tokens)
-    tree = parser.program()
+    lexer        = NetLangLexer(input_stream)
+    tokens       = CommonTokenStream(lexer)
+    parser       = NetLangParser(tokens)
+    tree         = parser.program()
 
     if parser.getNumberOfSyntaxErrors() > 0:
         print(f"✗ Se encontraron {parser.getNumberOfSyntaxErrors()} error(es) sintactico(s). Abortando.")
@@ -51,33 +50,21 @@ def main():
 
     print("✓ Analisis semantico correcto.")
 
-    # ── Fase 3: Generación de IR ──────────────────────────────────
+    # ── Fase 3: Generación de IR de dominio ──────────────────────
     ir_gen = IRGenerator()
     ir_gen.visit(tree)
-    network_ir = ir_gen.ir
-
-    if emitir_ir or archivo_salida:
-        llvm_ir = ir_gen.emit_llvm_ir()
-        if emitir_ir:
-            os.makedirs('salida', exist_ok=True)
-            nombre_base = os.path.basename(os.path.splitext(archivo_entrada)[0]) + '.ll'
-            nombre_ir = os.path.join('salida', nombre_base)
-            with open(nombre_ir, 'w', encoding='utf-8') as f:
-                f.write(llvm_ir)
-            print(f"✓ LLVM IR generado en: {nombre_ir}")
+    print(f"✓ IR de dominio construida: {ir_gen.ir}")
 
     # ── Fase 4: Generación de código Mininet ──────────────────────
     if archivo_salida:
-        os.makedirs('mininet', exist_ok=True)
-        nombre_base = os.path.basename(archivo_salida)
-        ruta_salida = os.path.join('mininet', nombre_base)
-        codegen = CodeGen(network_ir)
+        codegen = CodeGenVisitor()
+        codegen.visit(tree)
         script = codegen.generar()
-        with open(ruta_salida, 'w', encoding='utf-8') as f:
+        with open(archivo_salida, 'w', encoding='utf-8') as f:
             f.write(script)
-        print(f"✓ Script Mininet generado en: {ruta_salida}")
+        print(f"✓ Script Mininet generado en: {archivo_salida}")
+    else:
+        print("Tip: usa --codegen <salida.py> para generar el script Mininet.")
 
-    if not emitir_ir and not archivo_salida:
-        print("Tip: usa --ir para generar LLVM IR y --codegen <salida.py> para generar el script Mininet.")
 
 main()
