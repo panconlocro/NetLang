@@ -7,19 +7,19 @@ Subredes:
   LAN: 192.168.1.0/24  →  R1 (.1), PC1 (.2), PC2 (.3)
 """
 from mininet.net import Mininet
-from mininet.node import OVSSwitch, OVSController
+from mininet.node import OVSSwitch, Controller
 from mininet.link import TCLink
 from mininet.log import setLogLevel, info
 from mininet.cli import CLI
 
 
 def crear_topologia():
-    net = Mininet(controller=OVSController, link=TCLink, switch=OVSSwitch)
+    net = Mininet(controller=Controller, link=TCLink, switch=OVSSwitch)
 
     info('*** Agregando dispositivos\n')
-    # eth0 de R1 → primer addLink → R1-SW1
     R1  = net.addHost('R1',  ip='192.168.1.1/24')
-    SW1 = net.addSwitch('SW1')
+    # failMode=standalone: el switch aprende MACs solo, sin depender del controlador
+    SW1 = net.addSwitch('SW1', failMode='standalone')
     PC1 = net.addHost('PC1', ip='192.168.1.2/24')
     PC2 = net.addHost('PC2', ip='192.168.1.3/24')
 

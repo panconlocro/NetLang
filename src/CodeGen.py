@@ -70,14 +70,14 @@ class CodeGen:
         a(f'Red: {ir.name}')
         a(f'"""')
         a('from mininet.net import Mininet')
-        a('from mininet.node import Host, OVSSwitch, OVSController')
+        a('from mininet.node import Host, OVSSwitch, Controller')
         a('from mininet.link import TCLink')
         a('from mininet.log import setLogLevel, info')
         a('from mininet.cli import CLI')
         a('')
 
         a(f'def crear_topologia_{ir.name}():')
-        a(f'    net = Mininet(controller=OVSController, link=TCLink, switch=OVSSwitch)')
+        a(f'    net = Mininet(controller=Controller, link=TCLink, switch=OVSSwitch)')
         a('')
 
         # Dispositivos
@@ -86,8 +86,8 @@ class CodeGen:
         for d in ir.devices:
             nombre = d['name']
             tipo = d['tipo']
-            if tipo == 1:  # switch
-                a(f'    {nombre} = net.addSwitch("{nombre}")')
+            if tipo == 1:  # switch — failMode standalone: aprende MACs sin controlador
+                a(f'    {nombre} = net.addSwitch("{nombre}", failMode="standalone")')
             else:          # router o host
                 # Use the IP that belongs to eth0 (first connection in addLink order)
                 ip = self._eth0_ip.get(nombre)
