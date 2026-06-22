@@ -1,0 +1,21 @@
+network LabRed {
+
+    subnet LAN_Alumnos 10.0.1.0/24
+
+    device R1 router {
+        gateway 10.0.1.1
+    }
+
+    device SW1 switch
+
+    device PC1 host { subnet LAN_Alumnos }
+    device PC2 host { subnet LAN_Alumnos }
+
+    interface R1  eth0 ip 10.0.1.1  mask 255.255.255.0
+    interface PC1 eth0 ip 10.0.1.10 mask 255.255.255.0
+    interface PC2 eth0 ip 10.0.1.20 mask 255.255.255.0
+
+    connect R1.eth0  to SW1.port1 bandwidth 1 Gbps latency 1 ms
+    connect PC1.eth0 to SW1.port2 bandwidth 100 Mbps
+    connect PC2.eth0 to SW1.port3 bandwidth 100 Mbps
+}
