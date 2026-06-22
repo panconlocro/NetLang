@@ -69,6 +69,13 @@ Para ejecutar el script Mininet generado se necesita Mininet instalado:
 sudo apt-get install mininet
 ```
 
+Para la interfaz grafica se necesita intalar tkinter en: 
+
+```bash
+# Ubuntu / Debian
+sudo apt update && sudo apt install python3-tk
+```
+
 ## Ejecución
 
 ### Solo análisis léxico y semántico
