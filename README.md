@@ -188,24 +188,46 @@ mininet> exit
 ```
 network LabRed {
 
-    subnet LAN_Alumnos 10.0.1.0/24
+    subnet LAN_Oficina 192.168.1.0/24
+    subnet LAN_Servidores 10.0.0.0/24
 
-    device R1 router {
-        gateway 10.0.1.1
+    device Router1 router
+
+    device Switch1 switch
+    device Switch2 switch
+
+    device PC1 host {
+        subnet LAN_Oficina
+        gateway 192.168.1.1
     }
 
-    device SW1 switch
+    device PC2 host {
+        subnet LAN_Oficina
+        gateway 192.168.1.1
+    }
 
-    device PC1 host { subnet LAN_Alumnos }
-    device PC2 host { subnet LAN_Alumnos }
+    device Server1 host {
+        subnet LAN_Servidores
+        gateway 10.0.0.1
+    }
 
-    interface R1  eth0 ip 10.0.1.1  mask 255.255.255.0
-    interface PC1 eth0 ip 10.0.1.10 mask 255.255.255.0
-    interface PC2 eth0 ip 10.0.1.20 mask 255.255.255.0
+    // Interfaces del router, una por cada subred
+    interface Router1 eth0 ip 192.168.1.1 mask 255.255.255.0
+    interface Router1 eth1 ip 10.0.0.1 mask 255.255.255.0
 
-    connect R1.eth0  to SW1.port1 bandwidth 1 Gbps latency 1 ms
-    connect PC1.eth0 to SW1.port2 bandwidth 100 Mbps
-    connect PC2.eth0 to SW1.port3 bandwidth 100 Mbps
+    // Interfaces de los hosts
+    interface PC1 eth0 ip 192.168.1.10 mask 255.255.255.0
+    interface PC2 eth0 ip 192.168.1.20 mask 255.255.255.0
+    interface Server1 eth0 ip 10.0.0.10 mask 255.255.255.0
+
+    // Conexiones lado LAN_Oficina
+    connect Router1.eth0 to Switch1.port1 bandwidth 1 Gbps latency 1 ms
+    connect PC1.eth0 to Switch1.port2 bandwidth 100 Mbps latency 2 ms
+    connect PC2.eth0 to Switch1.port3 bandwidth 100 Mbps latency 2 ms
+
+    // Conexiones lado LAN_Servidores
+    connect Router1.eth1 to Switch2.port1 bandwidth 1 Gbps latency 1 ms
+    connect Server1.eth0 to Switch2.port2 bandwidth 100 Mbps latency 5 ms
 }
 ```
 
@@ -221,7 +243,9 @@ python3 src/main.py examples/lab_red.txt --ir --codegen lab_red.py
 sudo python3 mininet/lab_red.py
 ```
 
-4. Verificar conectividad:
+4. Pruebas completas:
+
+Conectividad Intra-sured
 
 ```
 mininet> pingall
@@ -231,14 +255,30 @@ PC1 -> R1 PC2
 PC2 -> R1 PC1
 *** Results: 0% dropped (6/6 received)
 ```
-
-5. Probar ancho de banda entre dos hosts:
+Cruza de una subred a otra via Router1
 
 ```
-mininet> iperf PC1 PC2
+mininet> PC1 ping -c 5 Server1
 ```
 
-6. Limpiar la red después de terminar:
+Confirma las dos interfaces (eth0, eth1)
+
+```
+mininet> Router1 ip addr 
+```
+Confirmar que usa 192.168.1.1 como gateway
+
+```
+mininet> PC1 ip route
+```
+
+Verificación de propiedades de enlace (bandwidth/latency) a nivel del kernel
+
+```
+mininet> PC1 tc qdisc show dev PC1-eth0
+```
+
+5. Limpiar la red después de terminar:
 
 ```bash
 sudo mn -c
